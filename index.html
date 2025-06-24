@@ -3,226 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Pacientes</title>
+    <title>Painel de Pacientes Interativo</title>
     <!-- Carrega o Tailwind CSS para estilização -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Define a fonte Inter como padrão */
-        body {
-            font-family: 'Inter', sans-serif;
+        body { font-family: 'Inter', sans-serif; }
+        /* Animação para o spinner de carregamento */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, .1);
+            border-left-color: #4f46e5;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        /* Estilo para a célula editável */
+        [contenteditable]:focus {
+            outline: 2px solid #4f46e5;
+            background-color: #eef2ff;
+            border-radius: 4px;
+        }
+        /* Estilos para a mensagem de notificação (toast) */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
         }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <div class="p-4 sm:p-6 lg:p-8">
+    <!-- Elemento para Notificações -->
+    <div id="toast"></div>
+
+    <div id="app" class="p-4 sm:p-6 lg:p-8">
         <div class="container mx-auto max-w-7xl">
             <header class="mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Painel de Pacientes</h1>
-                <p class="text-gray-600 mt-1">Clique nos cabeçalhos para ordenar ou use a busca para filtrar.</p>
+                <h1 class="text-3xl font-bold text-gray-800">Painel de Pacientes Interativo</h1>
+                <p class="text-gray-600 mt-1">Dados lidos e salvos diretamente da sua Planilha Google.</p>
             </header>
 
-            <!-- Campo de Busca -->
             <div class="bg-white p-4 rounded-xl shadow-md mb-6">
-                <input
-                    type="text"
-                    id="searchInput"
-                    placeholder="Buscar em toda a planilha..."
-                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                />
+                <input type="text" id="searchInput" placeholder="Buscar em toda a planilha..."
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"/>
             </div>
             
-            <!-- Tabela de Dados -->
             <div class="overflow-x-auto bg-white rounded-xl shadow-md">
                 <table class="w-full text-sm text-left text-gray-600">
-                    <thead id="tableHead" class="text-xs text-gray-700 uppercase bg-gray-50">
-                        <!-- O cabeçalho da tabela será gerado pelo JavaScript -->
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- O corpo da tabela será gerado pelo JavaScript -->
-                    </tbody>
+                    <thead id="tableHead" class="text-xs text-gray-700 uppercase bg-gray-50"></thead>
+                    <tbody id="tableBody"></tbody>
                 </table>
+                 <!-- Indicador de Carregamento -->
+                <div id="loader" class="flex justify-center items-center p-10">
+                    <div class="spinner"></div>
+                </div>
             </div>
 
              <footer class="text-center mt-8 text-gray-500 text-sm">
-                <p>Desenvolvido para visualização e interação de dados.</p>
+                <p>Clique em uma célula para editar. As alterações são salvas automaticamente.</p>
             </footer>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- DADOS E CONFIGURAÇÕES INICIAIS ---
-
-            const initialData = [
-                { id: 1, situacao: 'DIP - Isolamento', leito: 'Q15 L1', dataInternacao: '23/06/2025', nome: 'CLEONICE FATIMA LOPES DE OLIVEIRA', idade: 67, classificacao: 'Intermediário', diagnostico: 'PNM+DPOC', medico: 'Ricardo', obs: 'COXI/RTCPR2306' },
-                { id: 2, situacao: 'Apto. Adulto', leito: '204/01', dataInternacao: '23/06/2025', nome: 'RUTH BARRETO DE OLIVEIRA', idade: 68, classificacao: 'Intermediário', diagnostico: 'ITU+PAC', medico: 'Fábio', obs: 'PALIATIVA' },
-                { id: 3, situacao: 'Apto. Adulto', leito: '205/1', dataInternacao: '23/06/2025', nome: 'IGOR CABRERA BINATTI', idade: 45, classificacao: 'Intermediário', diagnostico: 'POI FRAT EX MIE E PUNHO', medico: 'Nei', obs: '' },
-                { id: 4, situacao: 'Pediatria', leito: 'Q17 L4', dataInternacao: '23/06/2025', nome: 'LOURENZO ARAUJO FACCIOLI', idade: '3 MESES', classificacao: 'Mínimos', diagnostico: 'PNM', medico: 'ANGELA', obs: 'TR NEC' },
-                { id: 5, situacao: 'DIP', leito: 'Q12 L1', dataInternacao: '23/06/2025', nome: 'NELSON FERNANDES', idade: 90, classificacao: 'Intermediário', diagnostico: 'ICC+PAC', medico: 'Ricardo', obs: 'RTPCR ANAST' },
-                { id: 6, situacao: 'C. Cirúrgica', leito: '20 L3', dataInternacao: '23/06/2025', nome: 'DEJALMA XIMENES DA SILVA', idade: 54, classificacao: 'Intermediário', diagnostico: 'COLANGITE+ABCESSO HEP?NEO?', medico: 'Magno', obs: 'CORE' },
-                { id: 7, situacao: 'Apto. Adulto', leito: '203/02', dataInternacao: '23/06/2025', nome: 'ROSALINA GUERREIRO DOS SANTOS', idade: 83, classificacao: 'Intermediário', diagnostico: 'COLECISTITE+ABCESSO HEPATICO', medico: 'Magno', obs: '' },
-                { id: 8, situacao: 'C. Cirúrgica', leito: '18 L2', dataInternacao: '23/06/2025', nome: 'SILVIO CANDIDO DE SOUZA', idade: 66, classificacao: 'Mínimos', diagnostico: 'ITU', medico: 'CARMEN', obs: '' },
-            ];
-
+            // --- CONFIGURAÇÕES GLOBAIS ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2z-xO5ot9FAfa_U6Poisohsbl4uf2xMRwZjX--SUS0HaU9_Wd0_L6Y_5BMjtcaGnQ8g/exec";
             const columns = [
-                { label: 'Situação', key: 'situacao' },
-                { label: 'Leito', key: 'leito' },
-                { label: 'Data internação', key: 'dataInternacao' },
-                { label: 'Nome', key: 'nome' },
-                { label: 'Idade', key: 'idade' },
-                { label: 'Classificação', key: 'classificacao' },
-                { label: 'Diagnóstico', key: 'diagnostico' },
-                { label: 'Médico', key: 'medico' },
-                { label: 'Obs / Col. exame?', key: 'obs' },
+                { label: 'Situação', key: 0, editable: false }, { label: 'Leito', key: 1, editable: true },
+                { label: 'Data internação', key: 2, editable: true }, { label: 'Nome', key: 3, editable: true },
+                { label: 'Idade', key: 4, editable: true }, { label: 'Classificação', key: 5, editable: true },
+                { label: 'Diagnóstico', key: 6, editable: true }, { label: 'Médico', key: 7, editable: true },
+                { label: 'Obs / Col. exame?', key: 8, editable: true },
             ];
-
             const situacaoColorMap = {
-                'DIP - Isolamento': 'bg-red-200 text-red-800',
-                'Apto. Adulto': 'bg-pink-200 text-pink-800',
-                'Pediatria': 'bg-yellow-200 text-yellow-800',
-                'DIP': 'bg-yellow-200 text-yellow-800',
+                'DIP - Isolamento': 'bg-red-200 text-red-800', 'Apto. Adulto': 'bg-pink-200 text-pink-800',
+                'Pediatria': 'bg-yellow-200 text-yellow-800', 'DIP': 'bg-yellow-200 text-yellow-800',
                 'C. Cirúrgica': 'bg-green-200 text-green-800',
             };
 
-            let sortConfig = { key: 'nome', direction: 'asc' };
+            let originalData = [];
+            let sortConfig = { key: 3, direction: 'asc' }; // Ordenar por Nome (coluna 3)
             let searchTerm = '';
 
             // --- ELEMENTOS DO DOM ---
             const searchInput = document.getElementById('searchInput');
             const tableHead = document.getElementById('tableHead');
             const tableBody = document.getElementById('tableBody');
-            
-            // --- FUNÇÕES ---
+            const loader = document.getElementById('loader');
+            const toast = document.getElementById('toast');
 
-            /**
-             * Renderiza o cabeçalho da tabela, incluindo os ícones de ordenação.
-             */
-            function renderHead() {
-                let headHTML = '<tr>';
-                for (const col of columns) {
-                    let icon = '<svg class="w-4 h-4 inline-block text-gray-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>';
-                    if (sortConfig.key === col.key) {
-                        if (sortConfig.direction === 'asc') {
-                            icon = '<svg class="w-4 h-4 inline-block text-blue-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>';
-                        } else {
-                            icon = '<svg class="w-4 h-4 inline-block text-blue-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-                        }
-                    }
+            // --- FUNÇÕES PRINCIPAIS ---
 
-                    headHTML += `
-                        <th scope="col" data-key="${col.key}" class="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:bg-gray-200 transition-colors">
-                           <div class="flex items-center">
-                               ${col.label}
-                               ${icon}
-                           </div>
-                        </th>
-                    `;
+            /** Busca os dados da planilha via Apps Script */
+            async function fetchData() {
+                loader.style.display = 'flex';
+                tableBody.innerHTML = '';
+                try {
+                    const response = await fetch(SCRIPT_URL);
+                    if (!response.ok) throw new Error(`Erro na rede: ${response.statusText}`);
+                    originalData = await response.json();
+                    render();
+                } catch (error) {
+                    console.error("Falha ao buscar dados:", error);
+                    tableBody.innerHTML = `<tr><td colspan="${columns.length}" class="text-center py-8 text-red-500">Falha ao carregar dados. Verifique o console.</td></tr>`;
+                } finally {
+                    loader.style.display = 'none';
                 }
-                headHTML += '</tr>';
-                tableHead.innerHTML = headHTML;
-                
-                // Adiciona os event listeners aos novos cabeçalhos
-                document.querySelectorAll('#tableHead th').forEach(th => {
-                    th.addEventListener('click', handleSortClick);
-                });
             }
 
-            /**
-             * Renderiza o corpo da tabela com os dados filtrados e ordenados.
-             */
-            function renderBody() {
-                let filteredData = [...initialData];
-
-                // Filtragem
-                if (searchTerm) {
-                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                    filteredData = filteredData.filter(item =>
-                        Object.values(item).some(value =>
-                            String(value).toLowerCase().includes(lowerCaseSearchTerm)
-                        )
-                    );
-                }
-
-                // Ordenação
-                if (sortConfig.key) {
-                    filteredData.sort((a, b) => {
-                        const aValue = a[sortConfig.key];
-                        const bValue = b[sortConfig.key];
-                        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-                        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-                        return 0;
+            /** Atualiza uma célula na planilha via Apps Script */
+            async function updateCell(rowIndex, colIndex, newValue) {
+                showToast('Salvando...', 'bg-blue-500');
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ rowIndex, colIndex, newValue }),
                     });
+                    const result = await response.json();
+                    if (result.status !== "SUCCESS") throw new Error(result.message);
+                    
+                    // Atualiza o dado localmente para evitar recarregar tudo
+                    originalData[rowIndex][colIndex] = newValue;
+                    showToast('Salvo com sucesso!', 'bg-green-600', 2000);
+                } catch (error) {
+                    console.error("Falha ao salvar:", error);
+                    showToast('Erro ao salvar!', 'bg-red-600', 3000);
+                    // Opcional: recarregar os dados para reverter a mudança visual
+                    // fetchData(); 
                 }
-                
-                let bodyHTML = '';
-                if (filteredData.length > 0) {
-                    for (const item of filteredData) {
-                        const colorClass = situacaoColorMap[item.situacao] || 'bg-gray-200 text-gray-800';
-                        bodyHTML += `
-                            <tr class="bg-white border-b hover:bg-gray-50">
-                                <td class="px-4 py-3">
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full ${colorClass}">
-                                        ${item.situacao}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">${item.leito}</td>
-                                <td class="px-4 py-3 whitespace-nowrap">${item.dataInternacao}</td>
-                                <td class="px-4 py-3 font-semibold text-gray-800">${item.nome}</td>
-                                <td class="px-4 py-3">${item.idade}</td>
-                                <td class="px-4 py-3">${item.classificacao}</td>
-                                <td class="px-4 py-3">${item.diagnostico}</td>
-                                <td class="px-4 py-3">${item.medico}</td>
-                                <td class="px-4 py-3">${item.obs}</td>
-                            </tr>
-                        `;
-                    }
-                } else {
-                     bodyHTML = `
-                        <tr>
-                            <td colspan="${columns.length}" class="text-center py-8 text-gray-500">
-                                Nenhum resultado encontrado para "${searchTerm}".
-                            </td>
-                        </tr>
-                     `;
-                }
-                tableBody.innerHTML = bodyHTML;
             }
-            
-            /**
-             * Lida com o clique no cabeçalho para mudar a ordenação.
-             */
-            function handleSortClick(event) {
-                const key = event.currentTarget.dataset.key;
-                if (sortConfig.key === key) {
-                    sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortConfig.key = key;
-                    sortConfig.direction = 'asc';
-                }
-                render(); // Re-renderiza tudo
-            }
-            
-            /**
-             * Função principal para renderizar toda a tabela (cabeçalho e corpo).
-             */
+
+            /** Renderiza a tabela completa (cabeçalho e corpo) */
             function render() {
                 renderHead();
                 renderBody();
             }
 
-            // --- EVENT LISTENERS ---
-            searchInput.addEventListener('input', (event) => {
-                searchTerm = event.target.value;
-                renderBody(); // Apenas o corpo precisa ser re-renderizado na busca
+            /** Renderiza o cabeçalho da tabela */
+            function renderHead() {
+                let headHTML = '<tr>';
+                columns.forEach(col => {
+                    headHTML += `
+                        <th scope="col" data-key="${col.key}" class="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:bg-gray-200 transition-colors">
+                           <div class="flex items-center">${col.label}</div>
+                        </th>`;
+                });
+                tableHead.innerHTML = headHTML;
+                document.querySelectorAll('#tableHead th').forEach(th => th.addEventListener('click', handleSortClick));
+            }
+
+            /** Renderiza o corpo da tabela com os dados filtrados e ordenados */
+            function renderBody() {
+                let displayData = [...originalData];
+                
+                // Filtragem
+                if (searchTerm) {
+                    const lowerCaseTerm = searchTerm.toLowerCase();
+                    displayData = displayData.filter(row => row.some(cell => String(cell).toLowerCase().includes(lowerCaseTerm)));
+                }
+
+                // Ordenação
+                displayData.sort((a, b) => {
+                    const aValue = a[sortConfig.key];
+                    const bValue = b[sortConfig.key];
+                    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                let bodyHTML = '';
+                if (displayData.length > 0) {
+                    displayData.forEach((row, rowIndex) => {
+                        const originalRowIndex = originalData.indexOf(row); // Encontra o índice original para o salvamento
+                        bodyHTML += `<tr data-row-index="${originalRowIndex}">`;
+                        row.forEach((cell, colIndex) => {
+                            const columnConfig = columns.find(c => c.key === colIndex);
+                            const isEditable = columnConfig.editable;
+                            const situacao = row[0]; // Coluna da situação é sempre a 0
+                            const colorClass = situacaoColorMap[situacao] || 'bg-gray-200 text-gray-800';
+
+                            if (colIndex === 0) { // Coluna 'Situação'
+                                bodyHTML += `<td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium rounded-full ${colorClass}">${cell}</span></td>`;
+                            } else {
+                                bodyHTML += `<td data-col-index="${colIndex}" class="px-4 py-3" ${isEditable ? 'contenteditable="true"' : ''}>${cell}</td>`;
+                            }
+                        });
+                        bodyHTML += '</tr>';
+                    });
+                } else {
+                    bodyHTML = `<tr><td colspan="${columns.length}" class="text-center py-8 text-gray-500">Nenhum resultado encontrado.</td></tr>`;
+                }
+                tableBody.innerHTML = bodyHTML;
+            }
+
+            // --- MANIPULADORES DE EVENTOS ---
+
+            function handleSortClick(e) {
+                const key = parseInt(e.currentTarget.dataset.key);
+                sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
+                sortConfig.key = key;
+                renderBody();
+            }
+
+            searchInput.addEventListener('input', e => {
+                searchTerm = e.target.value;
+                renderBody();
             });
 
-            // --- INICIALIZAÇÃO ---
-            render();
+            // Adiciona evento para salvar quando o foco sai de uma célula editada
+            tableBody.addEventListener('blur', function(e) {
+                if (e.target.hasAttribute('contenteditable')) {
+                    const td = e.target;
+                    const tr = td.closest('tr');
+                    const rowIndex = parseInt(tr.dataset.rowIndex);
+                    const colIndex = parseInt(td.dataset.colIndex);
+                    const newValue = td.innerText;
 
+                    // Salva apenas se o valor mudou
+                    if (originalData[rowIndex] && originalData[rowIndex][colIndex] != newValue) {
+                        updateCell(rowIndex, colIndex, newValue);
+                    }
+                }
+            }, true); // Usa captura para garantir que o evento seja pego
+
+             /** Exibe uma notificação (toast) */
+            function showToast(message, bgColor, duration = 3000) {
+                toast.textContent = message;
+                toast.className = `show ${bgColor}`;
+                if (duration) {
+                    setTimeout(() => {
+                        toast.className = toast.className.replace('show', '');
+                    }, duration);
+                }
+            }
+
+            // --- INICIALIZAÇÃO ---
+            fetchData();
         });
     </script>
 </body>
