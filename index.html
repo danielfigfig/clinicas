@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Pacientes</title>
+    <!-- Carrega o Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Define a fonte Inter como padrão */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="p-4 sm:p-6 lg:p-8">
+        <div class="container mx-auto max-w-7xl">
+            <header class="mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Painel de Pacientes</h1>
+                <p class="text-gray-600 mt-1">Clique nos cabeçalhos para ordenar ou use a busca para filtrar.</p>
+            </header>
+
+            <!-- Campo de Busca -->
+            <div class="bg-white p-4 rounded-xl shadow-md mb-6">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Buscar em toda a planilha..."
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+            </div>
+            
+            <!-- Tabela de Dados -->
+            <div class="overflow-x-auto bg-white rounded-xl shadow-md">
+                <table class="w-full text-sm text-left text-gray-600">
+                    <thead id="tableHead" class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <!-- O cabeçalho da tabela será gerado pelo JavaScript -->
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- O corpo da tabela será gerado pelo JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+             <footer class="text-center mt-8 text-gray-500 text-sm">
+                <p>Desenvolvido para visualização e interação de dados.</p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- DADOS E CONFIGURAÇÕES INICIAIS ---
+
+            const initialData = [
+                { id: 1, situacao: 'DIP - Isolamento', leito: 'Q15 L1', dataInternacao: '23/06/2025', nome: 'CLEONICE FATIMA LOPES DE OLIVEIRA', idade: 67, classificacao: 'Intermediário', diagnostico: 'PNM+DPOC', medico: 'Ricardo', obs: 'COXI/RTCPR2306' },
+                { id: 2, situacao: 'Apto. Adulto', leito: '204/01', dataInternacao: '23/06/2025', nome: 'RUTH BARRETO DE OLIVEIRA', idade: 68, classificacao: 'Intermediário', diagnostico: 'ITU+PAC', medico: 'Fábio', obs: 'PALIATIVA' },
+                { id: 3, situacao: 'Apto. Adulto', leito: '205/1', dataInternacao: '23/06/2025', nome: 'IGOR CABRERA BINATTI', idade: 45, classificacao: 'Intermediário', diagnostico: 'POI FRAT EX MIE E PUNHO', medico: 'Nei', obs: '' },
+                { id: 4, situacao: 'Pediatria', leito: 'Q17 L4', dataInternacao: '23/06/2025', nome: 'LOURENZO ARAUJO FACCIOLI', idade: '3 MESES', classificacao: 'Mínimos', diagnostico: 'PNM', medico: 'ANGELA', obs: 'TR NEC' },
+                { id: 5, situacao: 'DIP', leito: 'Q12 L1', dataInternacao: '23/06/2025', nome: 'NELSON FERNANDES', idade: 90, classificacao: 'Intermediário', diagnostico: 'ICC+PAC', medico: 'Ricardo', obs: 'RTPCR ANAST' },
+                { id: 6, situacao: 'C. Cirúrgica', leito: '20 L3', dataInternacao: '23/06/2025', nome: 'DEJALMA XIMENES DA SILVA', idade: 54, classificacao: 'Intermediário', diagnostico: 'COLANGITE+ABCESSO HEP?NEO?', medico: 'Magno', obs: 'CORE' },
+                { id: 7, situacao: 'Apto. Adulto', leito: '203/02', dataInternacao: '23/06/2025', nome: 'ROSALINA GUERREIRO DOS SANTOS', idade: 83, classificacao: 'Intermediário', diagnostico: 'COLECISTITE+ABCESSO HEPATICO', medico: 'Magno', obs: '' },
+                { id: 8, situacao: 'C. Cirúrgica', leito: '18 L2', dataInternacao: '23/06/2025', nome: 'SILVIO CANDIDO DE SOUZA', idade: 66, classificacao: 'Mínimos', diagnostico: 'ITU', medico: 'CARMEN', obs: '' },
+            ];
+
+            const columns = [
+                { label: 'Situação', key: 'situacao' },
+                { label: 'Leito', key: 'leito' },
+                { label: 'Data internação', key: 'dataInternacao' },
+                { label: 'Nome', key: 'nome' },
+                { label: 'Idade', key: 'idade' },
+                { label: 'Classificação', key: 'classificacao' },
+                { label: 'Diagnóstico', key: 'diagnostico' },
+                { label: 'Médico', key: 'medico' },
+                { label: 'Obs / Col. exame?', key: 'obs' },
+            ];
+
+            const situacaoColorMap = {
+                'DIP - Isolamento': 'bg-red-200 text-red-800',
+                'Apto. Adulto': 'bg-pink-200 text-pink-800',
+                'Pediatria': 'bg-yellow-200 text-yellow-800',
+                'DIP': 'bg-yellow-200 text-yellow-800',
+                'C. Cirúrgica': 'bg-green-200 text-green-800',
+            };
+
+            let sortConfig = { key: 'nome', direction: 'asc' };
+            let searchTerm = '';
+
+            // --- ELEMENTOS DO DOM ---
+            const searchInput = document.getElementById('searchInput');
+            const tableHead = document.getElementById('tableHead');
+            const tableBody = document.getElementById('tableBody');
+            
+            // --- FUNÇÕES ---
+
+            /**
+             * Renderiza o cabeçalho da tabela, incluindo os ícones de ordenação.
+             */
+            function renderHead() {
+                let headHTML = '<tr>';
+                for (const col of columns) {
+                    let icon = '<svg class="w-4 h-4 inline-block text-gray-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>';
+                    if (sortConfig.key === col.key) {
+                        if (sortConfig.direction === 'asc') {
+                            icon = '<svg class="w-4 h-4 inline-block text-blue-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>';
+                        } else {
+                            icon = '<svg class="w-4 h-4 inline-block text-blue-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+                        }
+                    }
+
+                    headHTML += `
+                        <th scope="col" data-key="${col.key}" class="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:bg-gray-200 transition-colors">
+                           <div class="flex items-center">
+                               ${col.label}
+                               ${icon}
+                           </div>
+                        </th>
+                    `;
+                }
+                headHTML += '</tr>';
+                tableHead.innerHTML = headHTML;
+                
+                // Adiciona os event listeners aos novos cabeçalhos
+                document.querySelectorAll('#tableHead th').forEach(th => {
+                    th.addEventListener('click', handleSortClick);
+                });
+            }
+
+            /**
+             * Renderiza o corpo da tabela com os dados filtrados e ordenados.
+             */
+            function renderBody() {
+                let filteredData = [...initialData];
+
+                // Filtragem
+                if (searchTerm) {
+                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+                    filteredData = filteredData.filter(item =>
+                        Object.values(item).some(value =>
+                            String(value).toLowerCase().includes(lowerCaseSearchTerm)
+                        )
+                    );
+                }
+
+                // Ordenação
+                if (sortConfig.key) {
+                    filteredData.sort((a, b) => {
+                        const aValue = a[sortConfig.key];
+                        const bValue = b[sortConfig.key];
+                        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+                }
+                
+                let bodyHTML = '';
+                if (filteredData.length > 0) {
+                    for (const item of filteredData) {
+                        const colorClass = situacaoColorMap[item.situacao] || 'bg-gray-200 text-gray-800';
+                        bodyHTML += `
+                            <tr class="bg-white border-b hover:bg-gray-50">
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full ${colorClass}">
+                                        ${item.situacao}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">${item.leito}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">${item.dataInternacao}</td>
+                                <td class="px-4 py-3 font-semibold text-gray-800">${item.nome}</td>
+                                <td class="px-4 py-3">${item.idade}</td>
+                                <td class="px-4 py-3">${item.classificacao}</td>
+                                <td class="px-4 py-3">${item.diagnostico}</td>
+                                <td class="px-4 py-3">${item.medico}</td>
+                                <td class="px-4 py-3">${item.obs}</td>
+                            </tr>
+                        `;
+                    }
+                } else {
+                     bodyHTML = `
+                        <tr>
+                            <td colspan="${columns.length}" class="text-center py-8 text-gray-500">
+                                Nenhum resultado encontrado para "${searchTerm}".
+                            </td>
+                        </tr>
+                     `;
+                }
+                tableBody.innerHTML = bodyHTML;
+            }
+            
+            /**
+             * Lida com o clique no cabeçalho para mudar a ordenação.
+             */
+            function handleSortClick(event) {
+                const key = event.currentTarget.dataset.key;
+                if (sortConfig.key === key) {
+                    sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortConfig.key = key;
+                    sortConfig.direction = 'asc';
+                }
+                render(); // Re-renderiza tudo
+            }
+            
+            /**
+             * Função principal para renderizar toda a tabela (cabeçalho e corpo).
+             */
+            function render() {
+                renderHead();
+                renderBody();
+            }
+
+            // --- EVENT LISTENERS ---
+            searchInput.addEventListener('input', (event) => {
+                searchTerm = event.target.value;
+                renderBody(); // Apenas o corpo precisa ser re-renderizado na busca
+            });
+
+            // --- INICIALIZAÇÃO ---
+            render();
+
+        });
+    </script>
+</body>
+</html>
